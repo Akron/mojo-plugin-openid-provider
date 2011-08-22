@@ -1,18 +1,18 @@
 package OpenID;
 
 use Mojo::Base -base;
-use Math::BigInt;
+use Math::BigInt try => 'GMP,Pari';
 use MIME::Base64;
 
 sub _rand_chars {
-    shift if @_ == 2;  # shift off classname/obj, if called as method
-    my $length = shift;
+    my $length = pop;
 
     my $chal = "";
-    my $digits = "abcdefghijklmnopqrstuvwzyzABCDEFGHIJKLMNOPQRSTUVWZYZ0123456789";
+
+    my @digits = ('a'..'z', 'A'..'Z', 0..9);
 
     for (1..$length) {
-        $chal .= substr($digits, int(rand(62)), 1);
+        $chal .= $digits[int(rand(@digits))];
     }
 
     return $chal;
@@ -48,7 +48,7 @@ sub _secret_of_handle {
     # check_authentication mode only verifies signatures made with
     # dumb (stateless == STLS) handles, so if that caller requests it,
     # don't return the secrets here of non-stateless handles
-    return if $dumb_mode && $nonce !~ /^STLS\./;
+    return if $dumb_mode && index($nonce,'STLS.') != 0;
 
     my $sec_time = $time - ($time % $self->secret_gen_interval);
     my $s_sec = $self->_get_server_secret($sec_time)  or return;
@@ -83,9 +83,7 @@ sub hash_to_kv {
 }
 
 sub _b64 {
-    my $val = MIME::Base64::encode_base64($_[0]);
-    $val =~ s/\s+//g;
-    return $val;
+    return MIME::Base64::encode_base64($_[0],'');
 }
 
 sub _bi2bytes {
